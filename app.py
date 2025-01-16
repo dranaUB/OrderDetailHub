@@ -7,6 +7,7 @@ from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 
 
+
 app = Flask(__name__, static_folder='static')
 csrf = CSRFProtect(app)
 
@@ -38,7 +39,10 @@ from models import Restaurant, Review
 def index():
     print('Request for index page received')
     restaurants = Restaurant.query.all()    
-    return render_template('index.html', restaurants=restaurants)
+    for restaurant in restaurants:
+            reviews = Review.query.filter(Review.restaurant==restaurant.id).all()
+            restaurant.total_bill = sum((review.price or 0) * (review.rating or 0) for review in reviews)
+    return render_template('index.html', orders=restaurants)
 
 @app.route('/<int:id>', methods=['GET'])
 def details(id):
@@ -50,6 +54,33 @@ def details(id):
 def create_restaurant():
     print('Request for add restaurant page received')
     return render_template('create_restaurant.html')
+
+
+@app.route('/reset_restaurants', methods=['POST'])
+@csrf.exempt
+def reset_restaurants():
+    try:
+        # Delete all data from the Restaurant table
+        db.session.query(Restaurant).delete()
+        db.session.commit()
+        return redirect(url_for('index'))  # Redirect to the homepage or a specific route
+    except (KeyError) as e:
+        db.session.rollback()
+        return f"An error occurred: {str(e)}", 500
+
+@app.route('/delete_item/<int:id>/<int:review_id>', methods=['POST'])
+@csrf.exempt
+def delete_item(id, review_id):
+    # Find the review to delete
+    review = Review.query.get_or_404(review_id)
+
+    # Delete the review
+    db.session.delete(review)
+    db.session.commit()
+
+
+    # Redirect back to the restaurant page
+    return redirect(url_for('details', id=id))
 
 @app.route('/add', methods=['POST'])
 @csrf.exempt
@@ -80,6 +111,7 @@ def add_review(id):
         user_name = request.values.get('user_name')
         rating = request.values.get('rating')
         review_text = request.values.get('review_text')
+        price = request.values.get('price')
     except (KeyError):
         #Redisplay the question voting form.
         return render_template('add_review.html', {
@@ -92,6 +124,7 @@ def add_review(id):
         review.user_name = user_name
         review.rating = int(rating)
         review.review_text = review_text
+        review.price = int(price)
         db.session.add(review)
         db.session.commit()
                 

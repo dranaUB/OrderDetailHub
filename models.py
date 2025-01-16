@@ -19,13 +19,9 @@ class Review(db.Model):
     restaurant = Column(Integer, ForeignKey('restaurant.id', ondelete="CASCADE"))
     user_name = Column(String(30))
     rating = Column(Integer)
-    review_text = Column(String(500))
+    review_text = Column(Integer)
     review_date = Column(DateTime)
-
-    @validates('rating')
-    def validate_rating(self, key, value):
-        assert value is None or (1 <= value <= 5)
-        return value
+    price=Column(Integer)
 
     def __str__(self):
         return self.restaurant.name + " (" + self.review_date.strftime("%x") +")"
